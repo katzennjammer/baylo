@@ -57,12 +57,31 @@ The app runs at http://localhost:3000.
 
 ### Environment variables
 
-All required variables are documented in [`.env.example`](.env.example). At minimum you need
-`DATABASE_URL`, `AUTH_SECRET`, and `NEXTAUTH_URL` to boot. The Cloudinary, Pusher, PayMongo,
-Google OAuth, SMTP, and Anthropic keys enable their respective features.
+Copy `.env.example` to `.env` and fill it in. Only three are needed to boot the app —
+everything else switches on an optional feature, and the app runs without it.
+
+**Required**
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | MySQL/MariaDB connection string |
+| `AUTH_SECRET` | NextAuth session encryption — `openssl rand -base64 32` |
+| `NEXTAUTH_URL` | App base URL, e.g. `http://localhost:3000` |
+
+**Optional — each enables one feature**
+
+| Variables | Enables | Without it |
+| --- | --- | --- |
+| `CLOUDINARY_*` | Image and audio uploads | Listings can't take photos |
+| `PUSHER_*`, `NEXT_PUBLIC_PUSHER_*` | Realtime chat and typing indicators | Messages need a refresh to appear |
+| `GOOGLE_CLIENT_ID` / `_SECRET` | "Sign in with Google" | Email + password sign-in still works |
+| `EMAIL_SMTP_*`, `EMAIL_FROM` | Password-reset emails | Reset links can't be delivered |
+| `PAYMONGO_*` | Wallet top-ups via PayMongo | Wallet works, top-up checkout doesn't |
+| `ANTHROPIC_API_KEY` | AI item ID, valuation, duplicate detection | Post items manually |
+| `PHASH_THRESHOLD`, `DUPLICATE_ACTION` | Tunes duplicate-listing strictness | Sensible defaults apply |
 
 > **Note:** `.env` is gitignored. Never commit real credentials — use `.env.example` as the
-> template and keep your own values local.
+> template and keep your own values local. Use PayMongo **test** keys only.
 
 ### Scripts
 
@@ -87,6 +106,14 @@ src/lib/         Server utilities (db, auth, integrations)
 public/          Static assets
 ```
 
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for how to get set up
+and what to expect from a pull request.
+
 ## License
 
-Not currently licensed for redistribution.
+[MIT](LICENSE) © katzennjammer
+
+You're free to use, modify, and distribute this project, including commercially.
+Just keep the copyright notice.
