@@ -58,3 +58,6 @@ Thumbs.db
 # local db dumps
 *.sql.gz
 *.dump
+
+# local AI assistant config (keep out of the public repo)
+CLAUDE.md
