@@ -1,0 +1,364 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model User {
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  password    String?
+  avatar      String?
+  bio         String?  @db.Text
+  location    String?
+  rating      Float    @default(0)
+  totalTrades Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items            Item[]
+  sentRequests     TradeRequest[] @relation("SentRequests")
+  receivedRequests TradeRequest[] @relation("ReceivedRequests")
+  sentMessages     Message[]      @relation("SentMessages")
+  receivedMessages Message[]      @relation("ReceivedMessages")
+  notifications         Notification[] @relation("NotificationRecipient")
+  triggeredNotifications Notification[] @relation("NotificationActor")
+  reviewsGiven     Review[]       @relation("ReviewsGiven")
+  reviewsReceived  Review[]       @relation("ReviewsReceived")
+  following        Follow[]       @relation("Follower")
+  followers        Follow[]       @relation("Followee")
+  postLikes        PostLike[]     @relation("UserPostLikes")
+  postComments     PostComment[]  @relation("UserPostComments")
+  commentLikes     CommentLike[]  @relation("UserCommentLikes")
+  sentOffers            Offer[]                @relation("SentOffers")
+  receivedOffers        Offer[]                @relation("ReceivedOffers")
+  points                Int                    @default(0)
+  ecoPoints             Int                    @default(0)
+  walletTransactions    WalletTransaction[]
+  swapConfirmationCodes SwapConfirmationCode[]
+  ecoTaskCompletions    EcoTaskCompletion[]
+}
+
+model Follow {
+  id         String       @id @default(cuid())
+  status     FollowStatus @default(PENDING)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  followerId String
+  follower   User   @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followeeId String
+  followee   User   @relation("Followee", fields: [followeeId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followeeId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Item {
+  id             String     @id @default(cuid())
+  title          String
+  description    String     @db.Text
+  images         String     @db.Text
+  category       Category
+  condition      Condition
+  estimatedValue Float?
+  status         ItemStatus @default(AVAILABLE)
+  wantedItems    String?    @db.Text
+  imageHash      String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  offeredIn   TradeRequest[] @relation("OfferedItem")
+  requestedIn TradeRequest[] @relation("RequestedItem")
+  likes        PostLike[]     @relation("ItemPostLikes")
+  comments     PostComment[]  @relation("ItemPostComments")
+  offers       Offer[]        @relation("ItemOffers")
+}
+
+model TradeRequest {
+  id        String      @id @default(cuid())
+  status    TradeStatus @default(PENDING)
+  message   String?     @db.Text
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  hiddenBySender   Boolean @default(false)
+  hiddenByReceiver Boolean @default(false)
+  safeZoneMeetup   Boolean @default(false)
+
+  senderId   String
+  sender     User   @relation("SentRequests", fields: [senderId], references: [id])
+  receiverId String
+  receiver   User   @relation("ReceivedRequests", fields: [receiverId], references: [id])
+
+  offeredItemId   String
+  offeredItem     Item   @relation("OfferedItem", fields: [offeredItemId], references: [id])
+  requestedItemId String
+  requestedItem   Item   @relation("RequestedItem", fields: [requestedItemId], references: [id])
+
+  messages              Message[]
+  reviews               Review[]
+  swapConfirmationCodes SwapConfirmationCode[]
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  senderId   String
+  sender     User   @relation("SentMessages", fields: [senderId], references: [id])
+  receiverId String
+  receiver   User   @relation("ReceivedMessages", fields: [receiverId], references: [id])
+
+  tradeId String?
+  trade   TradeRequest? @relation(fields: [tradeId], references: [id])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  message   String
+  read      Boolean          @default(false)
+  link      String?
+  createdAt DateTime         @default(now())
+
+  userId  String
+  user    User    @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actorId String?
+  actor   User?   @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int
+  comment   String?  @db.Text
+  createdAt DateTime @default(now())
+
+  reviewerId String
+  reviewer   User   @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  revieweeId String
+  reviewee   User   @relation("ReviewsReceived", fields: [revieweeId], references: [id])
+
+  tradeId String
+  trade   TradeRequest @relation(fields: [tradeId], references: [id])
+
+  @@unique([tradeId, reviewerId])
+}
+
+
+// Eco-Points reward system: one row per completed task.
+// One-time tasks use refId "" (MySQL treats NULLs as distinct in unique
+// indexes, so an empty-string default is what enforces once-per-user);
+// repeatable tasks (VERIFIED_SWAP, SAFEZONE_MEETUP) use refId = tradeId.
+model EcoTaskCompletion {
+  id        String   @id @default(cuid())
+  task      EcoTask
+  refId     String   @default("")
+  points    Int
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, task, refId])
+  @@index([userId])
+}
+
+enum EcoTask {
+  VERIFY_ACCOUNT
+  COMPLETE_PROFILE
+  FIRST_LISTING
+  VERIFIED_SWAP
+  SAFEZONE_MEETUP
+}
+
+model SwapConfirmationCode {
+  id        String       @id @default(cuid())
+  tradeId   String
+  trade     TradeRequest @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String
+  used      Boolean      @default(false)
+  expiresAt DateTime
+  createdAt DateTime     @default(now())
+
+  @@unique([tradeId, userId])
+}
+
+enum Category {
+  ELECTRONICS
+  CLOTHING
+  BAGS
+  BEAUTY
+  ACCESSORIES
+  FURNITURE
+  BOOKS
+  GAMING
+  SPORTS
+  BIKES
+  TOYS
+  TOOLS
+  MUSIC
+  ART
+  COLLECTIBLES
+  PETS
+  PLANTS
+  FOOD
+  SERVICES
+  OTHER
+}
+
+enum Condition {
+  NEW
+  LIKE_NEW
+  GOOD
+  FAIR
+  POOR
+}
+
+enum ItemStatus {
+  AVAILABLE
+  IN_TRADE
+  TRADED
+  OWNED
+  REMOVED
+}
+
+enum TradeStatus {
+  PENDING
+  ACCEPTED
+  CONFIRMING
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+enum NotificationType {
+  TRADE_REQUEST
+  TRADE_ACCEPTED
+  TRADE_REJECTED
+  TRADE_COMPLETED
+  TRADE_CANCELLED
+  NEW_MESSAGE
+  NEW_REVIEW
+  FOLLOW_REQUEST
+  FOLLOW_ACCEPTED
+}
+
+enum FollowStatus {
+  PENDING
+  ACCEPTED
+}
+
+model PostLike {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Item     @relation("ItemPostLikes", fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation("UserPostLikes", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+}
+
+model PostComment {
+  id        String        @id @default(cuid())
+  postId    String
+  post      Item          @relation("ItemPostComments", fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User          @relation("UserPostComments", fields: [userId], references: [id], onDelete: Cascade)
+  content   String        @db.Text
+  parentId  String?
+  parent    PostComment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   PostComment[] @relation("CommentReplies")
+  likes     CommentLike[]
+  createdAt DateTime      @default(now())
+}
+
+model CommentLike {
+  id        String      @id @default(cuid())
+  commentId String
+  comment   PostComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation("UserCommentLikes", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+
+  @@unique([commentId, userId])
+}
+
+model Offer {
+  id            String      @id @default(cuid())
+  postId        String
+  post          Item        @relation("ItemOffers", fields: [postId], references: [id], onDelete: Cascade)
+  senderId      String
+  sender        User        @relation("SentOffers", fields: [senderId], references: [id])
+  receiverId    String
+  receiver      User        @relation("ReceivedOffers", fields: [receiverId], references: [id])
+  offeredItems  String      @db.Text
+  offeredPoints Int?
+  message       String?     @db.Text
+  status        OfferStatus @default(PENDING)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum WalletTxType {
+  TOP_UP
+  TRADE_SPEND
+  TRADE_RECEIVE
+}
+
+// Each row is one atomic wallet event (credit or debit).
+// Top-up rows carry a full financial breakdown so a future admin revenue dashboard
+// can compute: SUM(platformFee) = total revenue, SUM(gatewayFee) = total gateway costs.
+// TODO: admin revenue dashboard — query WalletTransaction WHERE type = TOP_UP, aggregate by provider/createdAt
+model WalletTransaction {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        WalletTxType
+  amount      Int          // positive = credit, negative = debit (in Baylo points)
+  description String
+
+  // Financial breakdown — populated for TOP_UP; null for trade spend/receive
+  grossAmount Float?       // PHP notional paid (points × PHP_PER_POINT in demo)
+  gatewayFee  Float?       // Payment gateway fee in PHP (0 in demo)
+  platformFee Float?       // Platform revenue in PHP (0 in demo; driven by PLATFORM_FEE_CONFIG)
+  netPoints   Int?         // Points actually credited after any fee deduction
+  provider    String?      // "demo" | "paymongo" | "gcash" | etc.
+
+  // Optional references to the trade/offer that caused this debit/credit
+  offerId     String?
+  tradeId     String?
+
+  // Idempotency key for real payment gateway top-ups (e.g. PayMongo checkout session id)
+  gatewayRef  String?      @unique
+
+  createdAt   DateTime     @default(now())
+
+  @@index([userId])
+  @@index([userId, createdAt])
+}

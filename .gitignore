@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -39,3 +40,21 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma
+
+# local secrets / credentials (never commit)
+*.key
+*.p12
+*.pfx
+secrets.json
+service-account*.json
+
+# editor / OS
+.idea/
+.vscode/
+Thumbs.db
+
+# local db dumps
+*.sql.gz
+*.dump
